@@ -1,0 +1,132 @@
+---
+title: "week4"
+author: "hyeonsu Noh"
+date: '2022-07-25'
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###1. Loading the Data
+```{r cars}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+
+
+train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv" 
+test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training_data <- read.csv(url(train))
+test_data <- read.csv(url(test))
+dim(training_data)
+dim(test_data)
+```
+
+
+###2. Data Claening
+
+##a. Remove variables which are having NA values.
+```{r}
+
+na_col <- sapply(training_data, function(x) mean(is.na(x))) > 0.95
+training_data <- training_data[,na_col == FALSE]
+test_data <- test_data[,na_col == FALSE]
+dim(training_data)
+dim(test_data)
+```
+
+##b. Remove variables which are having nearly zero variance
+```{r}
+non_zero<-nearZeroVar(training_data)
+training_data <- training_data[,-non_zero]
+test_data <- test_data[,-non_zero]
+dim(training_data)
+dim(test_data)
+```
+
+##c. Remove variables which are non-numeric and will not contribute to our prediction model
+```{r}
+training_data <- training_data[,8:59]
+test_data <- test_data[,8:59]
+
+dim(training_data)
+dim(test_data)
+```
+
+
+###3. Splitting Data
+
+```{r}
+intrain <- createDataPartition(training_data$classe, p = 0.7, list = FALSE)
+training <- training_data[intrain,]
+testing <- training_data[-intrain,]
+
+dim(training)
+dim(testing)
+```
+
+
+###4. Decision Tree
+
+```{r}
+dtree_mod1 <- train(classe ~., data = training, method = "rpart")
+dtree_pred <- predict(dtree_mod1, testing)
+confusionMatrix(dtree_pred, as.factor(testing$classe))
+rpart.plot(dtree_mod1$finalModel, roundint = FALSE)
+```
+
+
+###5. RandomForest
+
+```{r}
+rf_mod1 <- train(classe ~., data = training, method = "rf", ntree = 100)
+rf_pred <- predict(rf_mod1, testing)
+rf_pred_conf <- confusionMatrix(rf_pred,as.factor(testing$classe))
+plot(rf_pred_conf$table, col = rf_pred_conf$byClass,
+     main = paste("Random Forest - Accuracy level =",
+                  round(rf_pred_conf$overall['Accuracy'], 4)))
+```
+
+###6. Gradient Boosting Model
+```{r}
+gbm_mod3 <- train(classe ~., data = training, method = "gbm", verbose = FALSE)
+gbm_mod3$finalModel
+
+gbm_pred <- predict(gbm_mod3, testing)
+gbm_pred_conf <- confusionMatrix(gbm_pred, as.factor(testing$classe))
+gbm_pred_conf
+
+plot(gbm_pred_conf$table, col = gbm_pred_conf$byClass,
+     main = paste("Gradient Boosting - Accuracy level =",
+                  round(gbm_pred_conf$overall['Accuracy'], 4)))
+```
+#GBM. The prediction accuracy is about 96% which is proper.
+
+###7. Model selecting
+
+#Decision Tree model didn't reach the satisfactory prediction accuracy level. so we can compare RandomForest with Gradient boosting model.
+```{r}
+rf_pred_conf$overall
+```
+```{r}
+gbm_pred_conf$overall
+```
+
+###8. Conclusion
+#RandomForest model has more prediction accuracy than GBM. so I will select RandomForest model and apply it tor test_data.
+
+```{r}
+Finaltest_rf_pred <- predict(rf_mod1, test_data)
+Finaltest_rf_pred
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
